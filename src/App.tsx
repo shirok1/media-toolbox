@@ -384,6 +384,22 @@ function App() {
 		URL.revokeObjectURL(url);
 	};
 
+	useEffect(() => {
+		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+		const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+			if (e.matches) {
+				document.documentElement.classList.add("dark");
+			} else {
+				document.documentElement.classList.remove("dark");
+			}
+		};
+
+		handleChange(mediaQuery);
+
+		mediaQuery.addEventListener("change", handleChange);
+		return () => mediaQuery.removeEventListener("change", handleChange);
+	}, []);
+
 	const outputSizeLabel = outputBlob ? formatBytes(outputBlob.size) : "—";
 	const outputStatus = isExtracting
 		? "Extracting audio..."
@@ -392,7 +408,7 @@ function App() {
 			: "Waiting to start";
 
 	return (
-		<div className="min-h-svh bg-background text-foreground dark">
+		<div className="min-h-svh bg-background text-foreground">
 			<div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10 lg:px-10">
 				<header className="flex flex-col gap-4">
 					<div className="space-y-2">
