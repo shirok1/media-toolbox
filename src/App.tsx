@@ -19,6 +19,7 @@ import {
 	Output,
 	WavOutputFormat,
 } from "mediabunny";
+import { MetadataAudio, MetadataVideo } from "@/components/metadata-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,12 +96,6 @@ type MediaMetadata = {
 	formatName: string | null;
 	mimeType: string | null;
 	audio: TrackSummary | null;
-	tags: {
-		title?: string;
-		artist?: string;
-		album?: string;
-		date?: Date;
-	};
 };
 
 function App() {
@@ -144,6 +139,18 @@ function App() {
 		return Number.isFinite(bytes) && bytes > 0 ? bytes : null;
 	}, [metadata]);
 
+	const audioLabel = useMemo(() => {
+		if (!metadata?.audio) {
+			return "—";
+		}
+
+		const sampleRateLabel = metadata.audio.sampleRate
+			? `${Math.round(metadata.audio.sampleRate / 1000)} kHz`
+			: "—";
+
+		return `${metadata.audio.codec ?? "unknown"} • ${sampleRateLabel}`;
+	}, [metadata]);
+
 	const appendLog = (message: string) => {
 		setLogs((prev) =>
 			[`${formatTimestamp()} ${message}`, ...prev].slice(0, 50),
@@ -163,14 +170,14 @@ function App() {
 		});
 
 		try {
-			const [format, durationSeconds, mimeType, tags, audioTrack] =
-				await Promise.all([
+			const [format, durationSeconds, mimeType, audioTrack] = await Promise.all(
+				[
 					input.getFormat(),
 					input.computeDuration(),
 					input.getMimeType(),
-					input.getMetadataTags(),
 					input.getPrimaryAudioTrack(),
-				]);
+				],
+			);
 
 			const audioStats = audioTrack
 				? await audioTrack.computePacketStats(200)
@@ -194,28 +201,9 @@ function App() {
 				formatName: format.name ?? null,
 				mimeType,
 				audio: audioSummary,
-				tags: {
-					title: tags.title,
-					artist: tags.artist,
-					album: tags.album,
-					date: tags.date,
-				},
 			});
 
-			const tagSummary = [
-				tags.title ? `title "${tags.title}"` : null,
-				tags.artist ? `artist "${tags.artist}"` : null,
-				tags.album ? `album "${tags.album}"` : null,
-				tags.date ? `date ${tags.date.toISOString().slice(0, 10)}` : null,
-			]
-				.filter(Boolean)
-				.join(", ");
-
-			appendLog(
-				tagSummary
-					? `Metadata ready (${tagSummary}).`
-					: "Metadata ready (no descriptive tags found).",
-			);
+			appendLog("Metadata ready.");
 		} catch (error) {
 			if (metadataRequestId.current !== requestId) {
 				return;
@@ -449,73 +437,18 @@ function App() {
 											{fileSummary}
 										</p>
 									</div>
-									<div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												Duration
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{formatDuration(metadata?.durationSeconds ?? null)}
-											</p>
-										</div>
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												File size
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{formatBytes(selectedFile.size)}
-											</p>
-										</div>
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												Audio
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{metadata?.audio
-													? `${metadata.audio.codec ?? "unknown"} • ${
-															metadata.audio.sampleRate
-																? `${Math.round(
-																		metadata.audio.sampleRate / 1000,
-																	)} kHz`
-																: "—"
-														}`
-													: "—"}
-											</p>
-										</div>
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												Est. output
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{estimatedOutputSize
-													? formatBytes(estimatedOutputSize)
-													: "—"}
-											</p>
-										</div>
-									</div>
-									{metadata?.tags &&
-									(metadata.tags.title ||
-										metadata.tags.artist ||
-										metadata.tags.album ||
-										metadata.tags.date) ? (
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												Tags
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{[
-													metadata.tags.title,
-													metadata.tags.artist,
-													metadata.tags.album,
-													metadata.tags.date
-														? metadata.tags.date.toISOString().slice(0, 10)
-														: null,
-												]
-													.filter(Boolean)
-													.join(" • ")}
-											</p>
-										</div>
-									) : null}
+									<MetadataVideo
+										durationLabel={formatDuration(
+											metadata?.durationSeconds ?? null,
+										)}
+										fileSizeLabel={formatBytes(selectedFile.size)}
+										audioLabel={audioLabel}
+										estimatedOutputLabel={
+											estimatedOutputSize
+												? formatBytes(estimatedOutputSize)
+												: "—"
+										}
+									/>
 									{isReadingMetadata ? (
 										<p className="text-xs text-muted-foreground">
 											Reading metadata...
@@ -573,40 +506,14 @@ function App() {
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-4">
-									<div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												Format
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{outputFormatLabelText.toUpperCase()}
-											</p>
-										</div>
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												Output size
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{outputSizeLabel}
-											</p>
-										</div>
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												MIME type
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{outputMimeType ?? "—"}
-											</p>
-										</div>
-										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-											<p className="text-[10px] uppercase tracking-[0.3em]">
-												Duration
-											</p>
-											<p className="mt-1 text-sm font-medium text-foreground">
-												{formatDuration(metadata?.durationSeconds ?? null)}
-											</p>
-										</div>
-									</div>
+									<MetadataAudio
+										formatLabel={outputFormatLabelText.toUpperCase()}
+										outputSizeLabel={outputSizeLabel}
+										mimeTypeLabel={outputMimeType ?? "—"}
+										durationLabel={formatDuration(
+											metadata?.durationSeconds ?? null,
+										)}
+									/>
 									<div className="flex flex-wrap gap-3">
 										<Button
 											size="lg"
