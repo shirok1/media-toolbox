@@ -1,5 +1,5 @@
 import type { DragEvent } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { VideoAdd } from "@carbon/icons-react";
 import {
@@ -10,14 +10,19 @@ import {
 	BufferTarget,
 	Conversion,
 	FlacOutputFormat,
+	MATROSKA,
 	Input as MediaInput,
 	MkvOutputFormat,
 	MovOutputFormat,
+	MP4,
+	MPEG_TS,
 	Mp3OutputFormat,
 	Mp4OutputFormat,
 	OggOutputFormat,
 	Output,
+	QTFF,
 	WavOutputFormat,
+	WEBM,
 } from "mediabunny";
 import { MetadataAudio, MetadataVideo } from "@/components/metadata-summary";
 import { Badge } from "@/components/ui/badge";
@@ -121,6 +126,17 @@ function App() {
 		return `${selectedFile.name} • ${formatBytes(selectedFile.size)}`;
 	}, [selectedFile]);
 
+	const mediaInput = useMemo(() => {
+		if (!selectedFile) {
+			return null;
+		}
+
+		return new MediaInput({
+			formats: [MP4, QTFF, MATROSKA, WEBM, MPEG_TS],
+			source: new BlobSource(selectedFile),
+		});
+	}, [selectedFile]);
+
 	const estimatedOutputSize = useMemo(() => {
 		if (
 			!metadata?.audio?.averageBitrate ||
@@ -147,76 +163,80 @@ function App() {
 		return `${metadata.audio.codec ?? "unknown"} • ${sampleRateLabel}`;
 	}, [metadata]);
 
-	const appendLog = (message: string) => {
+	const appendLog = useCallback((message: string) => {
 		setLogs((prev) =>
 			[`${formatTimestamp()} ${message}`, ...prev].slice(0, 50),
 		);
-	};
+	}, []);
 
-	const readMetadata = async (file: File) => {
-		const requestId = metadataRequestId.current + 1;
-		metadataRequestId.current = requestId;
-		setIsReadingMetadata(true);
+	const readMetadata = useCallback(
+		async (input: MediaInput) => {
+			const requestId = metadataRequestId.current + 1;
+			metadataRequestId.current = requestId;
+			setIsReadingMetadata(true);
+			appendLog("Reading metadata...");
+
+			try {
+				const [format, durationSeconds, mimeType, audioTrack] =
+					await Promise.all([
+						input.getFormat(),
+						input.computeDuration(),
+						input.getMimeType(),
+						input.getPrimaryAudioTrack(),
+					]);
+
+				const audioStats = audioTrack
+					? await audioTrack.computePacketStats(200)
+					: null;
+
+				if (metadataRequestId.current !== requestId) {
+					return;
+				}
+
+				const audioSummary = audioTrack
+					? {
+							codec: audioTrack.codec ?? "unknown",
+							sampleRate: audioTrack.sampleRate,
+							channels: audioTrack.numberOfChannels,
+							averageBitrate: audioStats?.averageBitrate,
+						}
+					: null;
+
+				setMetadata({
+					durationSeconds,
+					formatName: format.name ?? null,
+					mimeType,
+					audio: audioSummary,
+				});
+
+				appendLog("Metadata ready.");
+			} catch (error) {
+				if (metadataRequestId.current !== requestId) {
+					return;
+				}
+				setMetadata(null);
+				appendLog(
+					`Metadata read failed: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				);
+			} finally {
+				if (metadataRequestId.current === requestId) {
+					setIsReadingMetadata(false);
+				}
+			}
+		},
+		[appendLog],
+	);
+
+	useEffect(() => {
 		setMetadata(null);
-		appendLog("Reading metadata...");
-
-		const input = new MediaInput({
-			formats: ALL_FORMATS,
-			source: new BlobSource(file),
-		});
-
-		try {
-			const [format, durationSeconds, mimeType, audioTrack] = await Promise.all(
-				[
-					input.getFormat(),
-					input.computeDuration(),
-					input.getMimeType(),
-					input.getPrimaryAudioTrack(),
-				],
-			);
-
-			const audioStats = audioTrack
-				? await audioTrack.computePacketStats(200)
-				: null;
-
-			if (metadataRequestId.current !== requestId) {
-				return;
-			}
-
-			const audioSummary = audioTrack
-				? {
-						codec: audioTrack.codec ?? "unknown",
-						sampleRate: audioTrack.sampleRate,
-						channels: audioTrack.numberOfChannels,
-						averageBitrate: audioStats?.averageBitrate,
-					}
-				: null;
-
-			setMetadata({
-				durationSeconds,
-				formatName: format.name ?? null,
-				mimeType,
-				audio: audioSummary,
-			});
-
-			appendLog("Metadata ready.");
-		} catch (error) {
-			if (metadataRequestId.current !== requestId) {
-				return;
-			}
-			setMetadata(null);
-			appendLog(
-				`Metadata read failed: ${
-					error instanceof Error ? error.message : "Unknown error"
-				}`,
-			);
-		} finally {
-			input.dispose();
-			if (metadataRequestId.current === requestId) {
-				setIsReadingMetadata(false);
-			}
+		if (!mediaInput) {
+			return;
 		}
-	};
+
+		readMetadata(mediaInput);
+	}, [mediaInput, readMetadata]);
 
 	const handleFiles = (files: FileList | null) => {
 		const file = files?.[0];
@@ -229,7 +249,6 @@ function App() {
 		setOutputFileName(null);
 		setOutputMimeType(null);
 		appendLog(`Loaded ${file.name} (${formatBytes(file.size)})`);
-		readMetadata(file);
 	};
 
 	const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
@@ -274,7 +293,7 @@ function App() {
 	};
 
 	const startExtraction = async () => {
-		if (!selectedFile) {
+		if (!selectedFile || !mediaInput) {
 			return;
 		}
 
@@ -289,13 +308,8 @@ function App() {
 		setOutputMimeType(null);
 		appendLog("Starting audio extraction...");
 
-		const input = new MediaInput({
-			formats: ALL_FORMATS,
-			source: new BlobSource(selectedFile),
-		});
-
 		try {
-			const primaryAudio = await input.getPrimaryAudioTrack();
+			const primaryAudio = await mediaInput.getPrimaryAudioTrack();
 			if (!primaryAudio) {
 				appendLog("No audio track detected. Please choose another file.");
 				return;
@@ -318,7 +332,7 @@ function App() {
 			);
 
 			const conversion = await Conversion.init({
-				input,
+				input: mediaInput,
 				output,
 				video: { discard: true },
 				audio: (track) =>
@@ -352,7 +366,6 @@ function App() {
 				}`,
 			);
 		} finally {
-			input.dispose();
 			setIsExtracting(false);
 		}
 	};
