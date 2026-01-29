@@ -333,19 +333,9 @@ function App() {
 
 			await conversion.execute();
 
-			const rawBuffer = output.target.buffer;
-			const arrayBuffer =
-				rawBuffer instanceof Uint8Array
-					? rawBuffer.buffer.slice(
-							rawBuffer.byteOffset,
-							rawBuffer.byteOffset + rawBuffer.byteLength,
-						)
-					: rawBuffer;
-			const mimeType =
-				(await output.getMimeType().catch(() => null)) ??
-				output.format.mimeType ??
-				"audio/mpeg";
-			const blob = new Blob([arrayBuffer], { type: mimeType });
+			const blob = new Blob([output.target.buffer!], {
+				type: outputFormat.mimeType,
+			});
 			const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
 			const fileName = `${baseName || "audio"}${
 				outputFormat.fileExtension || ""
@@ -353,7 +343,7 @@ function App() {
 
 			setOutputBlob(blob);
 			setOutputFileName(fileName);
-			setOutputMimeType(mimeType);
+			setOutputMimeType(outputFormat.mimeType);
 			appendLog(`Extraction complete (${formatBytes(blob.size)}).`);
 		} catch (error) {
 			appendLog(
