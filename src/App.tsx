@@ -111,10 +111,6 @@ function App() {
 	const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
 	const [outputFileName, setOutputFileName] = useState<string | null>(null);
 	const [outputMimeType, setOutputMimeType] = useState<string | null>(null);
-	const [outputFormatLabel, setOutputFormatLabel] = useState<string | null>(
-		null,
-	);
-	const [outputExtension, setOutputExtension] = useState<string | null>(null);
 	const metadataRequestId = useRef(0);
 
 	const fileSummary = useMemo(() => {
@@ -232,8 +228,6 @@ function App() {
 		setOutputBlob(null);
 		setOutputFileName(null);
 		setOutputMimeType(null);
-		setOutputFormatLabel(null);
-		setOutputExtension(null);
 		appendLog(`Loaded ${file.name} (${formatBytes(file.size)})`);
 		readMetadata(file);
 	};
@@ -293,8 +287,6 @@ function App() {
 		setOutputBlob(null);
 		setOutputFileName(null);
 		setOutputMimeType(null);
-		setOutputFormatLabel(null);
-		setOutputExtension(null);
 		appendLog("Starting audio extraction...");
 
 		const input = new MediaInput({
@@ -315,10 +307,8 @@ function App() {
 				target: new BufferTarget(),
 			});
 
-			setOutputFormatLabel(outputFormat._name);
-			setOutputExtension(outputFormat.fileExtension);
 			appendLog(
-				`Using ${outputFormat._name} container (${
+				`Using ${outputFormat.fileExtension} container (${
 					primaryAudio.codec ?? "unknown codec"
 				})`,
 			);
@@ -387,8 +377,6 @@ function App() {
 	};
 
 	const outputSizeLabel = outputBlob ? formatBytes(outputBlob.size) : "—";
-	const outputFormatLabelText =
-		outputFormatLabel ?? (outputExtension ? outputExtension.slice(1) : "—");
 	const outputStatus = isExtracting
 		? "Extracting audio..."
 		: outputBlob
@@ -507,12 +495,8 @@ function App() {
 							<CardContent>
 								<div className="space-y-4">
 									<MetadataAudio
-										formatLabel={outputFormatLabelText.toUpperCase()}
-										outputSizeLabel={outputSizeLabel}
 										mimeTypeLabel={outputMimeType ?? "—"}
-										durationLabel={formatDuration(
-											metadata?.durationSeconds ?? null,
-										)}
+										outputSizeLabel={outputSizeLabel}
 									/>
 									<div className="flex flex-wrap gap-3">
 										<Button

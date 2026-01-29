@@ -36,24 +36,18 @@ export function MetadataVideo({
 }
 
 type MetadataAudioProps = {
-	formatLabel: string;
-	outputSizeLabel: string;
 	mimeTypeLabel: string;
-	durationLabel: string;
+	outputSizeLabel: string;
 };
 
 export function MetadataAudio({
-	formatLabel,
-	outputSizeLabel,
 	mimeTypeLabel,
-	durationLabel,
+	outputSizeLabel,
 }: MetadataAudioProps) {
 	return (
 		<div className="grid gap-3 text-xs text-muted-foreground grid-cols-2">
-			<MetadataBox label="Format" value={formatLabel} />
-			<MetadataBox label="Output size" value={outputSizeLabel} />
 			<MetadataBox label="MIME type" value={mimeTypeLabel} />
-			<MetadataBox label="Duration" value={durationLabel} />
+			<MetadataBox label="Output size" value={outputSizeLabel} />
 		</div>
 	);
 }
