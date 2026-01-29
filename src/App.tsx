@@ -1,6 +1,20 @@
 import type { DragEvent } from "react";
 import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 const formatBytes = (bytes: number) => {
 	if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -64,82 +78,111 @@ function App() {
 	};
 
 	return (
-		<div className="min-h-svh bg-slate-950 text-white">
-			<div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10 lg:px-10">
+		<div className="min-h-svh bg-background text-foreground dark">
+			<div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10 lg:px-10">
 				<header className="flex flex-col gap-4">
-					<h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-						Audio Extractor
-					</h1>
-					<p className="max-w-2xl text-base text-white/70">
-						Drop a video, extract the audio, save the result.
-					</p>
+					<Badge variant="outline">Media Toolbox</Badge>
+					<div className="space-y-2">
+						<h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+							Audio Extractor
+						</h1>
+						<p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+							Drop a video, extract the audio, save the result.
+						</p>
+					</div>
 				</header>
 
-				<section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-6">
-					<div>
-						<h2 className="text-lg font-semibold">Video input</h2>
-						<p className="text-sm text-white/60">
+				<Separator />
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Video input</CardTitle>
+						<CardDescription>
 							Drag a file in, or choose from your device.
-						</p>
-					</div>
-
-					<label
-						htmlFor="video-input"
-						onDragOver={(event) => {
-							event.preventDefault();
-							setIsDragging(true);
-						}}
-						onDragLeave={() => setIsDragging(false)}
-						onDrop={handleDrop}
-						className={`group flex min-h-[200px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 text-center transition ${
-							isDragging
-								? "border-emerald-300/80 bg-emerald-400/10"
-								: "border-white/20 bg-white/5 hover:border-white/40"
-						}`}
-					>
-						<p className="text-base font-medium">
-							{isDragging ? "Release to add video" : "Drag your video here"}
-						</p>
-						<p className="text-sm text-white/60">MP4, MOV, or MKV.</p>
-						<Button asChild variant="secondary" size="sm">
-							<span>Open file picker</span>
-						</Button>
-						<input
-							id="video-input"
-							type="file"
-							accept="video/*"
-							className="sr-only"
-							onChange={(event) => handleFiles(event.target.files)}
-						/>
-					</label>
-
-					<div className="rounded-xl border border-white/10 bg-black/40 p-4">
-						<p className="text-xs uppercase tracking-[0.3em] text-white/50">
-							Current file
-						</p>
-						<p className="mt-2 text-base font-medium">{fileSummary}</p>
-					</div>
-				</section>
-
-				<section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/40 p-6">
-					<h2 className="text-lg font-semibold">Logging console</h2>
-					<div className="h-[260px] overflow-auto rounded-xl border border-white/10 bg-black/70 p-4 font-mono text-xs text-emerald-200">
-						{logs.map((log, index) => (
-							<p key={`${log}-${index}`} className="leading-relaxed">
-								{log}
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<Label
+							htmlFor="video-input"
+							onDragOver={(event) => {
+								event.preventDefault();
+								setIsDragging(true);
+							}}
+							onDragLeave={() => setIsDragging(false)}
+							onDrop={handleDrop}
+							className={cn(
+								"group flex min-h-[200px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-6 text-center transition",
+								isDragging
+									? "border-emerald-400/60 bg-emerald-400/10 text-emerald-100"
+									: "border-border/70 bg-muted/20 hover:border-muted-foreground/60",
+							)}
+						>
+							<p className="text-base font-medium">
+								{isDragging ? "Release to add video" : "Drag your video here"}
 							</p>
-						))}
-					</div>
-				</section>
+							<div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+								<Badge variant="secondary">MP4</Badge>
+								<Badge variant="secondary">MOV</Badge>
+								<Badge variant="secondary">MKV</Badge>
+							</div>
+							<Button asChild variant="secondary" size="sm">
+								<span>Open file picker</span>
+							</Button>
+							<Input
+								id="video-input"
+								type="file"
+								accept="video/*"
+								className="sr-only"
+								onChange={(event) => handleFiles(event.target.files)}
+							/>
+						</Label>
 
-				<div className="flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
-					<p className="text-sm text-white/60">
-						Ready to save extracted audio.
-					</p>
-					<Button size="lg" className="w-full sm:w-auto">
-						Save result
-					</Button>
-				</div>
+						<div className="flex flex-col gap-3 rounded-lg border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+							<div>
+								<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+									Current file
+								</p>
+								<p className="mt-1 text-sm font-medium">{fileSummary}</p>
+							</div>
+							<Badge variant={selectedFile ? "default" : "secondary"}>
+								{selectedFile ? "Loaded" : "Empty"}
+							</Badge>
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Logging console</CardTitle>
+						<CardDescription>Latest extraction events.</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<ScrollArea className="h-[260px] rounded-lg border bg-muted/40">
+							<div className="space-y-2 p-4 font-mono text-xs text-emerald-300">
+								{logs.map((log, index) => (
+									<p key={`${log}-${index}`} className="leading-relaxed">
+										{log}
+									</p>
+								))}
+							</div>
+						</ScrollArea>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Output</CardTitle>
+						<CardDescription>Ready to save extracted audio.</CardDescription>
+					</CardHeader>
+					<CardFooter className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<p className="text-sm text-muted-foreground">
+							Export the audio to your default download folder.
+						</p>
+						<Button size="lg" className="w-full sm:w-auto">
+							Save result
+						</Button>
+					</CardFooter>
+				</Card>
 			</div>
 		</div>
 	);
