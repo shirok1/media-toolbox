@@ -5,6 +5,11 @@
     "": {
       "name": "media-toolbox",
       "dependencies": {
+        "@ibm/plex-math": "^1.1.0",
+        "@ibm/plex-mono": "^1.1.0",
+        "@ibm/plex-sans": "^1.1.0",
+        "@ibm/plex-sans-sc": "^1.1.0",
+        "@ibm/plex-serif": "^1.1.0",
         "@radix-ui/react-slot": "^1.2.4",
         "@tailwindcss/vite": "^4.1.18",
         "class-variance-authority": "^0.7.1",
@@ -94,6 +99,18 @@
     "@emnapi/runtime": ["@emnapi/runtime@1.8.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg=="],
 
     "@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.1.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-WI0DdZ8xFSbgMjR1sFsKABJ/C5OnRrjT06JXbZKexJGrDuPTzZdDYfFlsgcCXCyf+suG5QU2e/y1Wo2V/OapLQ=="],
+
+    "@ibm/plex-math": ["@ibm/plex-math@1.1.0", "", { "dependencies": { "@ibm/telemetry-js": "^1.6.1" } }, "sha512-MfJKbsCUFzAn7W8gaqElPcFYh/RcHdYWolydhGLdYV4qw9MeVM9fogDwBWWMlYDnaHBaFCLYwf20gXSEh2sfmQ=="],
+
+    "@ibm/plex-mono": ["@ibm/plex-mono@1.1.0", "", { "dependencies": { "@ibm/telemetry-js": "^1.6.1" } }, "sha512-hpsdRxR3BRJkC6wGM4MZcUFD6C8M+mmK76RtAy/hlsfPro9FzpXVdIWC+G3jeQOXof109dxlUvmeKxpeKUG68A=="],
+
+    "@ibm/plex-sans": ["@ibm/plex-sans@1.1.0", "", { "dependencies": { "@ibm/telemetry-js": "^1.6.1" } }, "sha512-WPgvO6Yfj2w5YbhyAr1tv95RUz4LRJlqN+CmYvBglabXteufP1D1E9BABMde+ZIKdRbFJDoKF5eQzfhpnbgZcQ=="],
+
+    "@ibm/plex-sans-sc": ["@ibm/plex-sans-sc@1.1.0", "", { "dependencies": { "@ibm/telemetry-js": "^1.8.0" } }, "sha512-IkhORwgw/CrsUss7uW9Rj6KKSsGQoIyIaNWjjju/7sV7SYS3yk0c/DgZN/leIG3Co5lN/X4Or/sQaL+SdvmSIg=="],
+
+    "@ibm/plex-serif": ["@ibm/plex-serif@1.1.0", "", { "dependencies": { "@ibm/telemetry-js": "^1.6.1" } }, "sha512-ORIyWlK8t8mvpFI7AAfhVFH+sacink2l9AjLiKZscmAzLVSa2dqFckrPOXqx4dK/cax567gWwCpJNEYk7xWxBQ=="],
+
+    "@ibm/telemetry-js": ["@ibm/telemetry-js@1.11.0", "", { "bin": { "ibmtelemetry": "dist/collect.js" } }, "sha512-RO/9j+URJnSfseWg9ZkEX9p+a3Ousd33DBU7rOafoZB08RqdzxFVYJ2/iM50dkBuD0o7WX7GYt1sLbNgCoE+pA=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 

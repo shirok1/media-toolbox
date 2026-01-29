@@ -10,6 +10,11 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@ibm/plex-math": "^1.1.0",
+		"@ibm/plex-mono": "^1.1.0",
+		"@ibm/plex-sans": "^1.1.0",
+		"@ibm/plex-sans-sc": "^1.1.0",
+		"@ibm/plex-serif": "^1.1.0",
 		"@radix-ui/react-slot": "^1.2.4",
 		"@tailwindcss/vite": "^4.1.18",
 		"class-variance-authority": "^0.7.1",
