@@ -568,23 +568,6 @@ function App() {
 					<div className="flex flex-col gap-6">
 						<Card>
 							<CardHeader>
-								<CardTitle>Logging console</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<ScrollArea className="h-65 rounded-lg border bg-muted/40">
-									<div className="space-y-2 p-4 font-mono text-xs text-primary">
-										{logs.map((log, index) => (
-											<p key={`${log}-${index}`} className="leading-relaxed">
-												{log}
-											</p>
-										))}
-									</div>
-								</ScrollArea>
-							</CardContent>
-						</Card>
-
-						<Card>
-							<CardHeader>
 								<CardTitle>Output</CardTitle>
 								<CardDescription>{outputStatus}</CardDescription>
 							</CardHeader>
@@ -646,6 +629,16 @@ function App() {
 								</div>
 							</CardContent>
 						</Card>
+
+						<ScrollArea className="h-65 rounded-lg border bg-muted/40">
+							<div className="space-y-2 p-4 font-mono text-xs text-primary">
+								{logs.map((log, index) => (
+									<p key={`${log}-${index}`} className="leading-relaxed">
+										{log}
+									</p>
+								))}
+							</div>
+						</ScrollArea>
 					</div>
 				</div>
 			</div>
