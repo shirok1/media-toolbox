@@ -11,7 +11,7 @@
 - `bun run dev` — start Vite (defaults to port 5173); add `-- --host` to expose on LAN.
 - `bun run build` — type-check via `tsc -b` then produce a production bundle in `dist/`.
 - `bun run preview` — serve the built assets locally to verify the production build.
-- `bun run check` — format + lint with Biome; run before committing.
+- `bun run check` — format + lint with Biome; run before returning to human action.
 
 ## Coding Style & Naming Conventions
 - Biome enforces tabs for indentation and double quotes for strings; avoid `var`, unused vars, or implicit `any`.
