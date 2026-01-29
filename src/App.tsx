@@ -1,7 +1,22 @@
 import type { DragEvent } from "react";
 import { useMemo, useRef, useState } from "react";
 import "./App.css";
-import { ALL_FORMATS, BlobSource, Input as MediaInput } from "mediabunny";
+import {
+	AdtsOutputFormat,
+	ALL_FORMATS,
+	BlobSource,
+	BufferTarget,
+	Conversion,
+	FlacOutputFormat,
+	Input as MediaInput,
+	MkvOutputFormat,
+	MovOutputFormat,
+	Mp3OutputFormat,
+	Mp4OutputFormat,
+	OggOutputFormat,
+	Output,
+	WavOutputFormat,
+} from "mediabunny";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,6 +103,14 @@ function App() {
 	]);
 	const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
 	const [isReadingMetadata, setIsReadingMetadata] = useState(false);
+	const [isExtracting, setIsExtracting] = useState(false);
+	const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
+	const [outputFileName, setOutputFileName] = useState<string | null>(null);
+	const [outputMimeType, setOutputMimeType] = useState<string | null>(null);
+	const [outputFormatLabel, setOutputFormatLabel] = useState<string | null>(
+		null,
+	);
+	const [outputExtension, setOutputExtension] = useState<string | null>(null);
 	const metadataRequestId = useRef(0);
 
 	const fileSummary = useMemo(() => {
@@ -209,6 +232,11 @@ function App() {
 		}
 
 		setSelectedFile(file);
+		setOutputBlob(null);
+		setOutputFileName(null);
+		setOutputMimeType(null);
+		setOutputFormatLabel(null);
+		setOutputExtension(null);
 		appendLog(`Loaded ${file.name} (${formatBytes(file.size)})`);
 		readMetadata(file);
 	};
@@ -218,6 +246,157 @@ function App() {
 		setIsDragging(false);
 		handleFiles(event.dataTransfer.files);
 	};
+
+	const selectOutputFormat = (codec: string | null) => {
+		if (codec === "mp3") {
+			return new Mp3OutputFormat();
+		}
+
+		if (codec === "aac") {
+			return new AdtsOutputFormat();
+		}
+
+		if (codec === "flac") {
+			return new FlacOutputFormat();
+		}
+
+		if (codec === "opus" || codec === "vorbis") {
+			return new OggOutputFormat();
+		}
+
+		const wav = new WavOutputFormat();
+		if (codec && wav.getSupportedAudioCodecs().includes(codec)) {
+			return wav;
+		}
+
+		const mp4 = new Mp4OutputFormat();
+		if (codec && mp4.getSupportedAudioCodecs().includes(codec)) {
+			return mp4;
+		}
+
+		const mkv = new MkvOutputFormat();
+		if (codec && mkv.getSupportedAudioCodecs().includes(codec)) {
+			return mkv;
+		}
+
+		return new MovOutputFormat();
+	};
+
+	const startExtraction = async () => {
+		if (!selectedFile) {
+			return;
+		}
+
+		if (!metadata?.audio) {
+			appendLog("No audio track detected. Please choose another file.");
+			return;
+		}
+
+		setIsExtracting(true);
+		setOutputBlob(null);
+		setOutputFileName(null);
+		setOutputMimeType(null);
+		setOutputFormatLabel(null);
+		setOutputExtension(null);
+		appendLog("Starting audio extraction...");
+
+		const input = new MediaInput({
+			formats: ALL_FORMATS,
+			source: new BlobSource(selectedFile),
+		});
+
+		try {
+			const primaryAudio = await input.getPrimaryAudioTrack();
+			if (!primaryAudio) {
+				appendLog("No audio track detected. Please choose another file.");
+				return;
+			}
+
+			const outputFormat = selectOutputFormat(primaryAudio.codec ?? null);
+			const output = new Output({
+				format: outputFormat,
+				target: new BufferTarget(),
+			});
+
+			setOutputFormatLabel(outputFormat._name);
+			setOutputExtension(outputFormat.fileExtension);
+			appendLog(
+				`Using ${outputFormat._name} container (${
+					primaryAudio.codec ?? "unknown codec"
+				})`,
+			);
+
+			const conversion = await Conversion.init({
+				input,
+				output,
+				video: { discard: true },
+				audio: (track) =>
+					track.number === primaryAudio.number
+						? { codec: primaryAudio.codec ?? undefined }
+						: { discard: true },
+			});
+			if (!conversion.isValid) {
+				appendLog("Audio extraction failed: unsupported tracks.");
+				return;
+			}
+
+			await conversion.execute();
+
+			const rawBuffer = output.target.buffer;
+			const arrayBuffer =
+				rawBuffer instanceof Uint8Array
+					? rawBuffer.buffer.slice(
+							rawBuffer.byteOffset,
+							rawBuffer.byteOffset + rawBuffer.byteLength,
+						)
+					: rawBuffer;
+			const mimeType =
+				(await output.getMimeType().catch(() => null)) ??
+				output.format.mimeType ??
+				"audio/mpeg";
+			const blob = new Blob([arrayBuffer], { type: mimeType });
+			const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
+			const fileName = `${baseName || "audio"}${
+				outputFormat.fileExtension || ""
+			}`;
+
+			setOutputBlob(blob);
+			setOutputFileName(fileName);
+			setOutputMimeType(mimeType);
+			appendLog(`Extraction complete (${formatBytes(blob.size)}).`);
+		} catch (error) {
+			appendLog(
+				`Extraction failed: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`,
+			);
+		} finally {
+			input.dispose();
+			setIsExtracting(false);
+		}
+	};
+
+	const handleSaveResult = () => {
+		if (!outputBlob || !outputFileName) {
+			return;
+		}
+
+		const url = URL.createObjectURL(outputBlob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = outputFileName;
+		link.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const outputSizeLabel = outputBlob ? formatBytes(outputBlob.size) : "—";
+	const outputFormatLabelText =
+		outputFormatLabel ?? (outputExtension ? outputExtension.slice(1) : "—");
+	const outputStatus = isExtracting
+		? "Extracting audio..."
+		: outputBlob
+			? "Ready to save"
+			: "Waiting to start";
 
 	return (
 		<div className="min-h-svh bg-background text-foreground dark">
@@ -397,11 +576,64 @@ function App() {
 						<Card>
 							<CardHeader>
 								<CardTitle>Output</CardTitle>
+								<CardDescription>{outputStatus}</CardDescription>
 							</CardHeader>
 							<CardContent>
-								<Button size="lg" className="w-full sm:w-auto">
-									Save result
-								</Button>
+								<div className="space-y-4">
+									<div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												Format
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{outputFormatLabelText.toUpperCase()}
+											</p>
+										</div>
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												Output size
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{outputSizeLabel}
+											</p>
+										</div>
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												MIME type
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{outputMimeType ?? "—"}
+											</p>
+										</div>
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												Duration
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{formatDuration(metadata?.durationSeconds ?? null)}
+											</p>
+										</div>
+									</div>
+									<div className="flex flex-wrap gap-3">
+										<Button
+											size="lg"
+											onClick={startExtraction}
+											disabled={
+												!selectedFile || isExtracting || isReadingMetadata
+											}
+										>
+											Start extraction
+										</Button>
+										<Button
+											size="lg"
+											variant="secondary"
+											onClick={handleSaveResult}
+											disabled={!outputBlob || isExtracting}
+										>
+											Save result
+										</Button>
+									</div>
+								</div>
 							</CardContent>
 						</Card>
 					</div>
