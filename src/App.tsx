@@ -392,7 +392,7 @@ function App() {
 			: "Waiting to start";
 
 	return (
-		<div className="min-h-svh bg-background text-foreground dark">
+		<div className="min-h-svh bg-background text-foreground">
 			<div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10 lg:px-10">
 				<header className="flex flex-col gap-4">
 					<div className="space-y-2">
