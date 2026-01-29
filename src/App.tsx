@@ -300,8 +300,12 @@ function App() {
 				appendLog("No audio track detected. Please choose another file.");
 				return;
 			}
+			if (!primaryAudio.codec) {
+				appendLog("No audio codec detected. Please choose another file.");
+				return;
+			}
 
-			const outputFormat = selectOutputFormat(primaryAudio.codec ?? null);
+			const outputFormat = selectOutputFormat(primaryAudio.codec);
 			const output = new Output({
 				format: outputFormat,
 				target: new BufferTarget(),
