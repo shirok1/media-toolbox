@@ -1,6 +1,7 @@
 import type { DragEvent } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import "./App.css";
+import { ALL_FORMATS, BlobSource, Input as MediaInput } from "mediabunny";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,45 @@ const formatTimestamp = () =>
 		second: "2-digit",
 	});
 
+const formatDuration = (seconds: number | null) => {
+	if (seconds === null || !Number.isFinite(seconds) || seconds < 0) {
+		return "—";
+	}
+
+	const rounded = Math.round(seconds);
+	const hours = Math.floor(rounded / 3600);
+	const minutes = Math.floor((rounded % 3600) / 60);
+	const remainingSeconds = rounded % 60;
+
+	if (hours > 0) {
+		return `${hours}:${String(minutes).padStart(2, "0")}:${String(
+			remainingSeconds,
+		).padStart(2, "0")}`;
+	}
+
+	return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+};
+
+type TrackSummary = {
+	codec: string | null;
+	sampleRate?: number;
+	channels?: number;
+	averageBitrate?: number;
+};
+
+type MediaMetadata = {
+	durationSeconds: number | null;
+	formatName: string | null;
+	mimeType: string | null;
+	audio: TrackSummary | null;
+	tags: {
+		title?: string;
+		artist?: string;
+		album?: string;
+		date?: Date;
+	};
+};
+
 function App() {
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
@@ -46,6 +86,9 @@ function App() {
 		`${formatTimestamp()} Ready to extract audio.`,
 		`${formatTimestamp()} Waiting for input...`,
 	]);
+	const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
+	const [isReadingMetadata, setIsReadingMetadata] = useState(false);
+	const metadataRequestId = useRef(0);
 
 	const fileSummary = useMemo(() => {
 		if (!selectedFile) {
@@ -55,10 +98,108 @@ function App() {
 		return `${selectedFile.name} • ${formatBytes(selectedFile.size)}`;
 	}, [selectedFile]);
 
+	const estimatedOutputSize = useMemo(() => {
+		if (
+			!metadata?.audio?.averageBitrate ||
+			metadata?.durationSeconds === null ||
+			metadata.durationSeconds <= 0
+		) {
+			return null;
+		}
+
+		const bytes =
+			(metadata.audio.averageBitrate * metadata.durationSeconds) / 8;
+		return Number.isFinite(bytes) && bytes > 0 ? bytes : null;
+	}, [metadata]);
+
 	const appendLog = (message: string) => {
 		setLogs((prev) =>
 			[`${formatTimestamp()} ${message}`, ...prev].slice(0, 50),
 		);
+	};
+
+	const readMetadata = async (file: File) => {
+		const requestId = metadataRequestId.current + 1;
+		metadataRequestId.current = requestId;
+		setIsReadingMetadata(true);
+		setMetadata(null);
+		appendLog("Reading metadata...");
+
+		const input = new MediaInput({
+			formats: ALL_FORMATS,
+			source: new BlobSource(file),
+		});
+
+		try {
+			const [format, durationSeconds, mimeType, tags, audioTrack] =
+				await Promise.all([
+					input.getFormat(),
+					input.computeDuration(),
+					input.getMimeType(),
+					input.getMetadataTags(),
+					input.getPrimaryAudioTrack(),
+				]);
+
+			const audioStats = audioTrack
+				? await audioTrack.computePacketStats(200)
+				: null;
+
+			if (metadataRequestId.current !== requestId) {
+				return;
+			}
+
+			const audioSummary = audioTrack
+				? {
+						codec: audioTrack.codec ?? "unknown",
+						sampleRate: audioTrack.sampleRate,
+						channels: audioTrack.numberOfChannels,
+						averageBitrate: audioStats?.averageBitrate,
+					}
+				: null;
+
+			setMetadata({
+				durationSeconds,
+				formatName: format.name ?? null,
+				mimeType,
+				audio: audioSummary,
+				tags: {
+					title: tags.title,
+					artist: tags.artist,
+					album: tags.album,
+					date: tags.date,
+				},
+			});
+
+			const tagSummary = [
+				tags.title ? `title "${tags.title}"` : null,
+				tags.artist ? `artist "${tags.artist}"` : null,
+				tags.album ? `album "${tags.album}"` : null,
+				tags.date ? `date ${tags.date.toISOString().slice(0, 10)}` : null,
+			]
+				.filter(Boolean)
+				.join(", ");
+
+			appendLog(
+				tagSummary
+					? `Metadata ready (${tagSummary}).`
+					: "Metadata ready (no descriptive tags found).",
+			);
+		} catch (error) {
+			if (metadataRequestId.current !== requestId) {
+				return;
+			}
+			setMetadata(null);
+			appendLog(
+				`Metadata read failed: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`,
+			);
+		} finally {
+			input.dispose();
+			if (metadataRequestId.current === requestId) {
+				setIsReadingMetadata(false);
+			}
+		}
 	};
 
 	const handleFiles = (files: FileList | null) => {
@@ -69,7 +210,7 @@ function App() {
 
 		setSelectedFile(file);
 		appendLog(`Loaded ${file.name} (${formatBytes(file.size)})`);
-		appendLog("Prepared extraction job.");
+		readMetadata(file);
 	};
 
 	const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
@@ -125,6 +266,75 @@ function App() {
 													{fileSummary}
 												</p>
 											</div>
+											<div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+													<p className="text-[10px] uppercase tracking-[0.3em]">
+														Duration
+													</p>
+													<p className="mt-1 text-sm font-medium text-foreground">
+														{formatDuration(metadata?.durationSeconds ?? null)}
+													</p>
+												</div>
+												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+													<p className="text-[10px] uppercase tracking-[0.3em]">
+														File size
+													</p>
+													<p className="mt-1 text-sm font-medium text-foreground">
+														{selectedFile
+															? formatBytes(selectedFile.size)
+															: "—"}
+													</p>
+												</div>
+												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+													<p className="text-[10px] uppercase tracking-[0.3em]">
+														Audio
+													</p>
+													<p className="mt-1 text-sm font-medium text-foreground">
+														{metadata?.audio
+															? `${metadata.audio.codec ?? "unknown"} • ${
+																	metadata.audio.sampleRate
+																		? `${Math.round(
+																				metadata.audio.sampleRate / 1000,
+																			)} kHz`
+																		: "—"
+																}`
+															: "—"}
+													</p>
+												</div>
+												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+													<p className="text-[10px] uppercase tracking-[0.3em]">
+														Est. output
+													</p>
+													<p className="mt-1 text-sm font-medium text-foreground">
+														{estimatedOutputSize
+															? formatBytes(estimatedOutputSize)
+															: "—"}
+													</p>
+												</div>
+											</div>
+											{metadata?.tags &&
+											(metadata.tags.title ||
+												metadata.tags.artist ||
+												metadata.tags.album ||
+												metadata.tags.date) ? (
+												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+													<p className="text-[10px] uppercase tracking-[0.3em]">
+														Tags
+													</p>
+													<p className="mt-1 text-sm font-medium text-foreground">
+														{[
+															metadata.tags.title,
+															metadata.tags.artist,
+															metadata.tags.album,
+															metadata.tags.date
+																? metadata.tags.date.toISOString().slice(0, 10)
+																: null,
+														]
+															.filter(Boolean)
+															.join(" • ")}
+													</p>
+												</div>
+											) : null}
 										</div>
 									) : (
 										<div className="space-y-4">
@@ -157,6 +367,13 @@ function App() {
 								/>
 							</Label>
 						</CardContent>
+						{isReadingMetadata ? (
+							<CardFooter>
+								<p className="text-xs text-muted-foreground">
+									Reading metadata...
+								</p>
+							</CardFooter>
+						) : null}
 					</Card>
 
 					<div className="flex flex-col gap-6">
