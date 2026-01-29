@@ -1,5 +1,6 @@
 import type { DragEvent } from "react";
 import { useMemo, useState } from "react";
+import "./App.css";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -113,7 +114,7 @@ function App() {
 							className={cn(
 								"group flex min-h-[200px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-6 text-center transition",
 								isDragging
-									? "border-emerald-400/60 bg-emerald-400/10 text-emerald-100"
+									? "border-primary/60 bg-primary/10 text-primary-foreground"
 									: "border-border/70 bg-muted/20 hover:border-muted-foreground/60",
 							)}
 						>
@@ -158,7 +159,7 @@ function App() {
 					</CardHeader>
 					<CardContent>
 						<ScrollArea className="h-[260px] rounded-lg border bg-muted/40">
-							<div className="space-y-2 p-4 font-mono text-xs text-emerald-300">
+							<div className="space-y-2 p-4 font-mono text-xs text-primary">
 								{logs.map((log, index) => (
 									<p key={`${log}-${index}`} className="leading-relaxed">
 										{log}
