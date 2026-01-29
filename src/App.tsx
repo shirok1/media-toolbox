@@ -1,9 +1,11 @@
 import type { DragEvent } from "react";
 import { useMemo, useRef, useState } from "react";
 import "./App.css";
+import { VideoAdd } from "@carbon/icons-react";
 import {
 	AdtsOutputFormat,
 	ALL_FORMATS,
+	type AudioCodec,
 	BlobSource,
 	BufferTarget,
 	Conversion,
@@ -23,10 +25,17 @@ import {
 	Card,
 	CardContent,
 	CardDescription,
-	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -247,7 +256,7 @@ function App() {
 		handleFiles(event.dataTransfer.files);
 	};
 
-	const selectOutputFormat = (codec: string | null) => {
+	const selectOutputFormat = (codec: AudioCodec | null) => {
 		if (codec === "mp3") {
 			return new Mp3OutputFormat();
 		}
@@ -412,148 +421,149 @@ function App() {
 				<Separator />
 
 				<div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-					<Card>
-						<CardHeader>
-							<CardTitle>Video input</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<Label
-								htmlFor="video-input"
-								onDragOver={(event) => {
-									event.preventDefault();
-									setIsDragging(true);
-								}}
-								onDragLeave={() => setIsDragging(false)}
-								onDrop={handleDrop}
-								className={cn("group block cursor-pointer")}
+					<Label
+						htmlFor="video-input"
+						onDragOver={(event) => {
+							event.preventDefault();
+							setIsDragging(true);
+						}}
+						onDragLeave={() => setIsDragging(false)}
+						onDrop={handleDrop}
+						className={cn("group block cursor-pointer h-fit")}
+					>
+						{selectedFile ? (
+							<div
+								className={cn(
+									"rounded-2xl border border-dashed px-6 py-8 text-left transition",
+									isDragging
+										? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
+										: "border-border/70 bg-muted/30",
+								)}
 							>
-								<div
-									className={cn(
-										"flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed px-6 py-8 text-center transition",
-										isDragging
-											? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
-											: "border-border/70 bg-muted/30",
-									)}
-								>
-									{selectedFile ? (
-										<div className="w-full max-w-md space-y-4 text-left">
-											<div>
-												<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-													Current file
-												</p>
-												<p className="mt-2 text-base font-semibold">
-													{fileSummary}
-												</p>
-											</div>
-											<div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-													<p className="text-[10px] uppercase tracking-[0.3em]">
-														Duration
-													</p>
-													<p className="mt-1 text-sm font-medium text-foreground">
-														{formatDuration(metadata?.durationSeconds ?? null)}
-													</p>
-												</div>
-												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-													<p className="text-[10px] uppercase tracking-[0.3em]">
-														File size
-													</p>
-													<p className="mt-1 text-sm font-medium text-foreground">
-														{selectedFile
-															? formatBytes(selectedFile.size)
-															: "—"}
-													</p>
-												</div>
-												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-													<p className="text-[10px] uppercase tracking-[0.3em]">
-														Audio
-													</p>
-													<p className="mt-1 text-sm font-medium text-foreground">
-														{metadata?.audio
-															? `${metadata.audio.codec ?? "unknown"} • ${
-																	metadata.audio.sampleRate
-																		? `${Math.round(
-																				metadata.audio.sampleRate / 1000,
-																			)} kHz`
-																		: "—"
-																}`
-															: "—"}
-													</p>
-												</div>
-												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-													<p className="text-[10px] uppercase tracking-[0.3em]">
-														Est. output
-													</p>
-													<p className="mt-1 text-sm font-medium text-foreground">
-														{estimatedOutputSize
-															? formatBytes(estimatedOutputSize)
-															: "—"}
-													</p>
-												</div>
-											</div>
-											{metadata?.tags &&
-											(metadata.tags.title ||
-												metadata.tags.artist ||
-												metadata.tags.album ||
-												metadata.tags.date) ? (
-												<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
-													<p className="text-[10px] uppercase tracking-[0.3em]">
-														Tags
-													</p>
-													<p className="mt-1 text-sm font-medium text-foreground">
-														{[
-															metadata.tags.title,
-															metadata.tags.artist,
-															metadata.tags.album,
-															metadata.tags.date
-																? metadata.tags.date.toISOString().slice(0, 10)
-																: null,
-														]
-															.filter(Boolean)
-															.join(" • ")}
-													</p>
-												</div>
-											) : null}
+								<div className="w-full space-y-4 text-left">
+									<div>
+										<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+											Current file
+										</p>
+										<p className="mt-2 text-base font-semibold">
+											{fileSummary}
+										</p>
+									</div>
+									<div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												Duration
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{formatDuration(metadata?.durationSeconds ?? null)}
+											</p>
 										</div>
-									) : (
-										<div className="space-y-4">
-											<div className="space-y-1 text-sm text-muted-foreground">
-												<p className="text-base font-semibold text-foreground">
-													{isDragging
-														? "Release to load the video"
-														: "Drop zone"}
-												</p>
-												{/*<p>Drag a video here or click to choose a file.</p>*/}
-											</div>
-											<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-												<Badge variant="secondary">MP4</Badge>
-												<Badge variant="secondary">MOV</Badge>
-												<Badge variant="secondary">MKV</Badge>
-												<Badge variant="secondary">AVI</Badge>
-											</div>
-											<Button asChild size="sm">
-												<span>Choose file</span>
-											</Button>
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												File size
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{formatBytes(selectedFile.size)}
+											</p>
 										</div>
-									)}
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												Audio
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{metadata?.audio
+													? `${metadata.audio.codec ?? "unknown"} • ${
+															metadata.audio.sampleRate
+																? `${Math.round(
+																		metadata.audio.sampleRate / 1000,
+																	)} kHz`
+																: "—"
+														}`
+													: "—"}
+											</p>
+										</div>
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												Est. output
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{estimatedOutputSize
+													? formatBytes(estimatedOutputSize)
+													: "—"}
+											</p>
+										</div>
+									</div>
+									{metadata?.tags &&
+									(metadata.tags.title ||
+										metadata.tags.artist ||
+										metadata.tags.album ||
+										metadata.tags.date) ? (
+										<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+											<p className="text-[10px] uppercase tracking-[0.3em]">
+												Tags
+											</p>
+											<p className="mt-1 text-sm font-medium text-foreground">
+												{[
+													metadata.tags.title,
+													metadata.tags.artist,
+													metadata.tags.album,
+													metadata.tags.date
+														? metadata.tags.date.toISOString().slice(0, 10)
+														: null,
+												]
+													.filter(Boolean)
+													.join(" • ")}
+											</p>
+										</div>
+									) : null}
+									{isReadingMetadata ? (
+										<p className="text-xs text-muted-foreground">
+											Reading metadata...
+										</p>
+									) : null}
 								</div>
-								<Input
-									id="video-input"
-									type="file"
-									accept="video/*"
-									className="sr-only"
-									onChange={(event) => handleFiles(event.target.files)}
-								/>
-							</Label>
-						</CardContent>
-						{isReadingMetadata ? (
-							<CardFooter>
-								<p className="text-xs text-muted-foreground">
-									Reading metadata...
-								</p>
-							</CardFooter>
-						) : null}
-					</Card>
+							</div>
+						) : (
+							<Empty
+								className={cn(
+									"border border-dashed",
+									isDragging
+										? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
+										: "border-border/70 bg-muted/30",
+								)}
+							>
+								<EmptyHeader>
+									<EmptyMedia variant="icon">
+										<VideoAdd />
+									</EmptyMedia>
+									<EmptyTitle>
+										{isDragging ? "Release to load the video" : "Drop zone"}
+									</EmptyTitle>
+									<EmptyDescription>
+										Drag a video here or click to choose a file.
+									</EmptyDescription>
+								</EmptyHeader>
+								<EmptyContent className="max-w-none">
+									<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+										<Badge variant="secondary">MP4</Badge>
+										<Badge variant="secondary">MOV</Badge>
+										<Badge variant="secondary">MKV</Badge>
+										<Badge variant="secondary">AVI</Badge>
+									</div>
+									<Button asChild size="sm">
+										<span>Choose file</span>
+									</Button>
+								</EmptyContent>
+							</Empty>
+						)}
+						<Input
+							id="video-input"
+							type="file"
+							accept="video/*"
+							className="sr-only"
+							onChange={(event) => handleFiles(event.target.files)}
+						/>
+					</Label>
 
 					<div className="flex flex-col gap-6">
 						<Card>
@@ -561,7 +571,7 @@ function App() {
 								<CardTitle>Logging console</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<ScrollArea className="h-[260px] rounded-lg border bg-muted/40">
+								<ScrollArea className="h-65 rounded-lg border bg-muted/40">
 									<div className="space-y-2 p-4 font-mono text-xs text-primary">
 										{logs.map((log, index) => (
 											<p key={`${log}-${index}`} className="leading-relaxed">

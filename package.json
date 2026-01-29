@@ -10,6 +10,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@carbon/icons-react": "^11.74.0",
 		"@ibm/plex-math": "^1.1.0",
 		"@ibm/plex-mono": "^1.1.0",
 		"@ibm/plex-sans": "^1.1.0",
