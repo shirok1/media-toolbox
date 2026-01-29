@@ -4,7 +4,6 @@ import "./App.css";
 import { VideoAdd } from "@carbon/icons-react";
 import {
 	AdtsOutputFormat,
-	ALL_FORMATS,
 	type AudioCodec,
 	BlobSource,
 	BufferTarget,
@@ -103,6 +102,8 @@ type MediaMetadata = {
 	audio: TrackSummary | null;
 };
 
+const SUPPORTED_INPUT_FORMATS = [MP4, QTFF, MATROSKA, WEBM, MPEG_TS];
+
 function App() {
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
@@ -132,7 +133,7 @@ function App() {
 		}
 
 		return new MediaInput({
-			formats: [MP4, QTFF, MATROSKA, WEBM, MPEG_TS],
+			formats: SUPPORTED_INPUT_FORMATS,
 			source: new BlobSource(selectedFile),
 		});
 	}, [selectedFile]);
@@ -473,10 +474,11 @@ function App() {
 								</EmptyHeader>
 								<EmptyContent className="max-w-none">
 									<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-										<Badge variant="secondary">MP4</Badge>
-										<Badge variant="secondary">MOV</Badge>
-										<Badge variant="secondary">MKV</Badge>
-										<Badge variant="secondary">AVI</Badge>
+										{SUPPORTED_INPUT_FORMATS.map((format) => (
+											<Badge variant="secondary">
+												{format.mimeType.split("/").at(-1)}
+											</Badge>
+										))}
 									</div>
 									<Button asChild size="sm">
 										<span>Choose file</span>
