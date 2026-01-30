@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 type MetadataBoxProps = {
 	label: string;
 	value: string;
@@ -25,12 +27,13 @@ export function MetadataVideo({
 	audioLabel,
 	estimatedOutputLabel,
 }: MetadataVideoProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="grid gap-3 text-xs text-muted-foreground grid-cols-2">
-			<MetadataBox label="Duration" value={durationLabel} />
-			<MetadataBox label="File size" value={fileSizeLabel} />
-			<MetadataBox label="Audio" value={audioLabel} />
-			<MetadataBox label="Est. output" value={estimatedOutputLabel} />
+			<MetadataBox label={t("duration")} value={durationLabel} />
+			<MetadataBox label={t("fileSize")} value={fileSizeLabel} />
+			<MetadataBox label={t("audio")} value={audioLabel} />
+			<MetadataBox label={t("estimatedOutput")} value={estimatedOutputLabel} />
 		</div>
 	);
 }
@@ -44,10 +47,11 @@ export function MetadataAudio({
 	mimeTypeLabel,
 	outputSizeLabel,
 }: MetadataAudioProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="grid gap-3 text-xs text-muted-foreground grid-cols-2">
-			<MetadataBox label="MIME type" value={mimeTypeLabel} />
-			<MetadataBox label="Output size" value={outputSizeLabel} />
+			<MetadataBox label={t("mimeType")} value={mimeTypeLabel} />
+			<MetadataBox label={t("outputSize")} value={outputSizeLabel} />
 		</div>
 	);
 }
