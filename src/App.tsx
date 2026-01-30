@@ -23,6 +23,7 @@ import {
 	WavOutputFormat,
 	WEBM,
 } from "mediabunny";
+import { useTranslation } from "react-i18next";
 import { MetadataAudio, MetadataVideo } from "@/components/metadata-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,12 +106,20 @@ type MediaMetadata = {
 const SUPPORTED_INPUT_FORMATS = [MP4, QTFF, MATROSKA, WEBM, MPEG_TS];
 
 function App() {
+	const { t } = useTranslation();
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
-	const [logs, setLogs] = useState<string[]>([
-		`${formatTimestamp()} Ready to extract audio.`,
-		`${formatTimestamp()} Waiting for input...`,
-	]);
+	const [logs, setLogs] = useState<string[]>([]);
+
+	// Initialize logs in useEffect to access t
+	// biome-ignore lint/correctness/useExhaustiveDependencies: We only want to set initial logs once
+	useEffect(() => {
+		setLogs([
+			`${formatTimestamp()} ${t("readyToExtract")}`,
+			`${formatTimestamp()} ${t("waitingForInput")}`,
+		]);
+	}, []);
+
 	const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
 	const [isReadingMetadata, setIsReadingMetadata] = useState(false);
 	const [isExtracting, setIsExtracting] = useState(false);
@@ -121,11 +130,14 @@ function App() {
 
 	const fileSummary = useMemo(() => {
 		if (!selectedFile) {
-			return "No video loaded yet.";
+			return t("noVideoLoaded");
 		}
 
-		return `${selectedFile.name} • ${formatBytes(selectedFile.size)}`;
-	}, [selectedFile]);
+		return t("loadedFile", {
+			file: selectedFile.name,
+			size: formatBytes(selectedFile.size),
+		});
+	}, [selectedFile, t]);
 
 	const mediaInput = useMemo(() => {
 		if (!selectedFile) {
@@ -161,8 +173,8 @@ function App() {
 			? `${Math.round(metadata.audio.sampleRate / 1000)} kHz`
 			: "—";
 
-		return `${metadata.audio.codec ?? "unknown"} • ${sampleRateLabel}`;
-	}, [metadata]);
+		return `${metadata.audio.codec ?? t("unknown")} • ${sampleRateLabel}`;
+	}, [metadata, t]);
 
 	const appendLog = useCallback((message: string) => {
 		setLogs((prev) =>
@@ -175,7 +187,7 @@ function App() {
 			const requestId = metadataRequestId.current + 1;
 			metadataRequestId.current = requestId;
 			setIsReadingMetadata(true);
-			appendLog("Reading metadata...");
+			appendLog(t("readingMetadata"));
 
 			try {
 				const [format, durationSeconds, mimeType, audioTrack] =
@@ -210,16 +222,16 @@ function App() {
 					audio: audioSummary,
 				});
 
-				appendLog("Metadata ready.");
+				appendLog(t("metadataReady"));
 			} catch (error) {
 				if (metadataRequestId.current !== requestId) {
 					return;
 				}
 				setMetadata(null);
 				appendLog(
-					`Metadata read failed: ${
-						error instanceof Error ? error.message : "Unknown error"
-					}`,
+					t("metadataReadFailed", {
+						error: error instanceof Error ? error.message : t("unknownError"),
+					}),
 				);
 			} finally {
 				if (metadataRequestId.current === requestId) {
@@ -227,7 +239,7 @@ function App() {
 				}
 			}
 		},
-		[appendLog],
+		[appendLog, t],
 	);
 
 	useEffect(() => {
@@ -249,7 +261,9 @@ function App() {
 		setOutputBlob(null);
 		setOutputFileName(null);
 		setOutputMimeType(null);
-		appendLog(`Loaded ${file.name} (${formatBytes(file.size)})`);
+		appendLog(
+			t("loadedFile", { file: file.name, size: formatBytes(file.size) }),
+		);
 	};
 
 	const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
@@ -299,7 +313,7 @@ function App() {
 		}
 
 		if (!metadata?.audio) {
-			appendLog("No audio track detected. Please choose another file.");
+			appendLog(t("noAudioTrack"));
 			return;
 		}
 
@@ -307,16 +321,16 @@ function App() {
 		setOutputBlob(null);
 		setOutputFileName(null);
 		setOutputMimeType(null);
-		appendLog("Starting audio extraction...");
+		appendLog(t("startingExtraction"));
 
 		try {
 			const primaryAudio = await mediaInput.getPrimaryAudioTrack();
 			if (!primaryAudio) {
-				appendLog("No audio track detected. Please choose another file.");
+				appendLog(t("noAudioTrack"));
 				return;
 			}
 			if (!primaryAudio.codec) {
-				appendLog("No audio codec detected. Please choose another file.");
+				appendLog(t("noAudioCodec"));
 				return;
 			}
 
@@ -327,9 +341,10 @@ function App() {
 			});
 
 			appendLog(
-				`Using ${outputFormat.fileExtension} container (${
-					primaryAudio.codec ?? "unknown codec"
-				})`,
+				t("usingContainer", {
+					format: outputFormat.fileExtension,
+					codec: primaryAudio.codec ?? t("unknownCodec"),
+				}),
 			);
 
 			const conversion = await Conversion.init({
@@ -342,7 +357,7 @@ function App() {
 						: { discard: true },
 			});
 			if (!conversion.isValid) {
-				appendLog("Audio extraction failed: unsupported tracks.");
+				appendLog(t("extractionFailedUnsupported"));
 				return;
 			}
 
@@ -359,12 +374,12 @@ function App() {
 			setOutputBlob(blob);
 			setOutputFileName(fileName);
 			setOutputMimeType(outputFormat.mimeType);
-			appendLog(`Extraction complete (${formatBytes(blob.size)}).`);
+			appendLog(t("extractionComplete", { size: formatBytes(blob.size) }));
 		} catch (error) {
 			appendLog(
-				`Extraction failed: ${
-					error instanceof Error ? error.message : "Unknown error"
-				}`,
+				t("extractionFailed", {
+					error: error instanceof Error ? error.message : t("unknownError"),
+				}),
 			);
 		} finally {
 			setIsExtracting(false);
@@ -402,10 +417,10 @@ function App() {
 
 	const outputSizeLabel = outputBlob ? formatBytes(outputBlob.size) : "—";
 	const outputStatus = isExtracting
-		? "Extracting audio..."
+		? t("extracting")
 		: outputBlob
-			? "Ready to save"
-			: "Waiting to start";
+			? t("readyToSave")
+			: t("waitingToStart");
 
 	return (
 		<div className="min-h-svh bg-background text-foreground">
@@ -413,7 +428,7 @@ function App() {
 				<header className="flex flex-col gap-4">
 					<div className="space-y-2">
 						<h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-							Audio Extractor
+							{t("audioExtractor")}
 						</h1>
 					</div>
 				</header>
@@ -443,7 +458,7 @@ function App() {
 								<div className="w-full space-y-4 text-left">
 									<div>
 										<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-											Current file
+											{t("currentFile")}
 										</p>
 										<p className="mt-2 text-base font-semibold">
 											{fileSummary}
@@ -463,7 +478,7 @@ function App() {
 									/>
 									{isReadingMetadata ? (
 										<p className="text-xs text-muted-foreground">
-											Reading metadata...
+											{t("readingMetadata")}
 										</p>
 									) : null}
 								</div>
@@ -482,11 +497,9 @@ function App() {
 										<VideoAdd />
 									</EmptyMedia>
 									<EmptyTitle>
-										{isDragging ? "Release to load the video" : "Drop zone"}
+										{isDragging ? t("releaseToLoad") : t("dropZone")}
 									</EmptyTitle>
-									<EmptyDescription>
-										Drag a video here or click to choose a file.
-									</EmptyDescription>
+									<EmptyDescription>{t("dragOrClick")}</EmptyDescription>
 								</EmptyHeader>
 								<EmptyContent className="max-w-none">
 									<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
@@ -497,7 +510,7 @@ function App() {
 										))}
 									</div>
 									<Button asChild size="sm">
-										<span>Choose file</span>
+										<span>{t("chooseFile")}</span>
 									</Button>
 								</EmptyContent>
 							</Empty>
@@ -514,7 +527,7 @@ function App() {
 					<div className="flex flex-col gap-6">
 						<Card>
 							<CardHeader>
-								<CardTitle>Output</CardTitle>
+								<CardTitle>{t("output")}</CardTitle>
 								<CardDescription>{outputStatus}</CardDescription>
 							</CardHeader>
 							<CardContent>
@@ -531,7 +544,7 @@ function App() {
 												!selectedFile || isExtracting || isReadingMetadata
 											}
 										>
-											Start extraction
+											{t("startExtraction")}
 										</Button>
 										<Button
 											size="lg"
@@ -539,7 +552,7 @@ function App() {
 											onClick={handleSaveResult}
 											disabled={!outputBlob || isExtracting}
 										>
-											Save result
+											{t("saveResult")}
 										</Button>
 									</div>
 								</div>
