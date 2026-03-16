@@ -24,6 +24,7 @@ import {
 	WEBM,
 } from "mediabunny";
 import { useTranslation } from "react-i18next";
+import { M3U8Remuxer } from "@/components/m3u8-remuxer";
 import { MetadataAudio, MetadataVideo } from "@/components/metadata-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 const formatBytes = (bytes: number) => {
@@ -428,148 +430,165 @@ function App() {
 				<header className="flex flex-col gap-4">
 					<div className="space-y-2">
 						<h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-							{t("audioExtractor")}
+							{t("mediaToolbox")}
 						</h1>
 					</div>
 				</header>
 
 				<Separator />
 
-				<div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-					<Label
-						htmlFor="video-input"
-						onDragOver={(event) => {
-							event.preventDefault();
-							setIsDragging(true);
-						}}
-						onDragLeave={() => setIsDragging(false)}
-						onDrop={handleDrop}
-						className={cn("group block cursor-pointer h-fit")}
-					>
-						{selectedFile ? (
-							<div
-								className={cn(
-									"rounded-2xl border border-dashed px-6 py-8 text-left transition",
-									isDragging
-										? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
-										: "border-border/70 bg-muted/30",
-								)}
+				<Tabs
+					defaultValue="audio-extractor"
+					className="w-full flex flex-col gap-6"
+				>
+					<TabsList className="w-full sm:w-auto self-start">
+						<TabsTrigger value="audio-extractor">
+							{t("audioExtractor")}
+						</TabsTrigger>
+						<TabsTrigger value="m3u8-remuxer">{t("m3u8Remuxer")}</TabsTrigger>
+					</TabsList>
+
+					<TabsContent value="audio-extractor">
+						<div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+							<Label
+								htmlFor="video-input"
+								onDragOver={(event) => {
+									event.preventDefault();
+									setIsDragging(true);
+								}}
+								onDragLeave={() => setIsDragging(false)}
+								onDrop={handleDrop}
+								className={cn("group block cursor-pointer h-fit")}
 							>
-								<div className="w-full space-y-4 text-left">
-									<div>
-										<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-											{t("currentFile")}
-										</p>
-										<p className="mt-2 text-base font-semibold">
-											{fileSummary}
-										</p>
-									</div>
-									<MetadataVideo
-										durationLabel={formatDuration(
-											metadata?.durationSeconds ?? null,
+								{selectedFile ? (
+									<div
+										className={cn(
+											"rounded-2xl border border-dashed px-6 py-8 text-left transition",
+											isDragging
+												? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
+												: "border-border/70 bg-muted/30",
 										)}
-										fileSizeLabel={formatBytes(selectedFile.size)}
-										audioLabel={audioLabel}
-										estimatedOutputLabel={
-											estimatedOutputSize
-												? formatBytes(estimatedOutputSize)
-												: "—"
-										}
-									/>
-									{isReadingMetadata ? (
-										<p className="text-xs text-muted-foreground">
-											{t("readingMetadata")}
-										</p>
-									) : null}
-								</div>
-							</div>
-						) : (
-							<Empty
-								className={cn(
-									"border border-dashed",
-									isDragging
-										? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
-										: "border-border/70 bg-muted/30",
+									>
+										<div className="w-full space-y-4 text-left">
+											<div>
+												<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+													{t("currentFile")}
+												</p>
+												<p className="mt-2 text-base font-semibold">
+													{fileSummary}
+												</p>
+											</div>
+											<MetadataVideo
+												durationLabel={formatDuration(
+													metadata?.durationSeconds ?? null,
+												)}
+												fileSizeLabel={formatBytes(selectedFile.size)}
+												audioLabel={audioLabel}
+												estimatedOutputLabel={
+													estimatedOutputSize
+														? formatBytes(estimatedOutputSize)
+														: "—"
+												}
+											/>
+											{isReadingMetadata ? (
+												<p className="text-xs text-muted-foreground">
+													{t("readingMetadata")}
+												</p>
+											) : null}
+										</div>
+									</div>
+								) : (
+									<Empty
+										className={cn(
+											"border border-dashed",
+											isDragging
+												? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
+												: "border-border/70 bg-muted/30",
+										)}
+									>
+										<EmptyHeader>
+											<EmptyMedia variant="icon">
+												<VideoAdd />
+											</EmptyMedia>
+											<EmptyTitle>
+												{isDragging ? t("releaseToLoad") : t("dropZone")}
+											</EmptyTitle>
+											<EmptyDescription>{t("dragOrClick")}</EmptyDescription>
+										</EmptyHeader>
+										<EmptyContent className="max-w-none">
+											<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+												{SUPPORTED_INPUT_FORMATS.map((format) => (
+													<Badge variant="secondary">
+														{format.mimeType.split("/").at(-1)}
+													</Badge>
+												))}
+											</div>
+											<Button asChild size="sm">
+												<span>{t("chooseFile")}</span>
+											</Button>
+										</EmptyContent>
+									</Empty>
 								)}
-							>
-								<EmptyHeader>
-									<EmptyMedia variant="icon">
-										<VideoAdd />
-									</EmptyMedia>
-									<EmptyTitle>
-										{isDragging ? t("releaseToLoad") : t("dropZone")}
-									</EmptyTitle>
-									<EmptyDescription>{t("dragOrClick")}</EmptyDescription>
-								</EmptyHeader>
-								<EmptyContent className="max-w-none">
-									<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-										{SUPPORTED_INPUT_FORMATS.map((format) => (
-											<Badge variant="secondary">
-												{format.mimeType.split("/").at(-1)}
-											</Badge>
+								<Input
+									id="video-input"
+									type="file"
+									accept="video/*"
+									className="sr-only"
+									onChange={(event) => handleFiles(event.target.files)}
+								/>
+							</Label>
+
+							<div className="flex flex-col gap-6">
+								<Card>
+									<CardHeader>
+										<CardTitle>{t("output")}</CardTitle>
+										<CardDescription>{outputStatus}</CardDescription>
+									</CardHeader>
+									<CardContent>
+										<div className="space-y-4">
+											<MetadataAudio
+												mimeTypeLabel={outputMimeType ?? "—"}
+												outputSizeLabel={outputSizeLabel}
+											/>
+											<div className="flex flex-wrap gap-3">
+												<Button
+													size="lg"
+													onClick={startExtraction}
+													disabled={
+														!selectedFile || isExtracting || isReadingMetadata
+													}
+												>
+													{t("startExtraction")}
+												</Button>
+												<Button
+													size="lg"
+													variant="secondary"
+													onClick={handleSaveResult}
+													disabled={!outputBlob || isExtracting}
+												>
+													{t("saveResult")}
+												</Button>
+											</div>
+										</div>
+									</CardContent>
+								</Card>
+
+								<ScrollArea className="h-65 rounded-lg border bg-muted/40">
+									<div className="space-y-2 p-4 font-mono text-xs text-primary">
+										{logs.map((log, index) => (
+											<p key={`${log}-${index}`} className="leading-relaxed">
+												{log}
+											</p>
 										))}
 									</div>
-									<Button asChild size="sm">
-										<span>{t("chooseFile")}</span>
-									</Button>
-								</EmptyContent>
-							</Empty>
-						)}
-						<Input
-							id="video-input"
-							type="file"
-							accept="video/*"
-							className="sr-only"
-							onChange={(event) => handleFiles(event.target.files)}
-						/>
-					</Label>
-
-					<div className="flex flex-col gap-6">
-						<Card>
-							<CardHeader>
-								<CardTitle>{t("output")}</CardTitle>
-								<CardDescription>{outputStatus}</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="space-y-4">
-									<MetadataAudio
-										mimeTypeLabel={outputMimeType ?? "—"}
-										outputSizeLabel={outputSizeLabel}
-									/>
-									<div className="flex flex-wrap gap-3">
-										<Button
-											size="lg"
-											onClick={startExtraction}
-											disabled={
-												!selectedFile || isExtracting || isReadingMetadata
-											}
-										>
-											{t("startExtraction")}
-										</Button>
-										<Button
-											size="lg"
-											variant="secondary"
-											onClick={handleSaveResult}
-											disabled={!outputBlob || isExtracting}
-										>
-											{t("saveResult")}
-										</Button>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-
-						<ScrollArea className="h-65 rounded-lg border bg-muted/40">
-							<div className="space-y-2 p-4 font-mono text-xs text-primary">
-								{logs.map((log, index) => (
-									<p key={`${log}-${index}`} className="leading-relaxed">
-										{log}
-									</p>
-								))}
+								</ScrollArea>
 							</div>
-						</ScrollArea>
-					</div>
-				</div>
+						</div>
+					</TabsContent>
+					<TabsContent value="m3u8-remuxer">
+						<M3U8Remuxer />
+					</TabsContent>
+				</Tabs>
 			</div>
 		</div>
 	);
