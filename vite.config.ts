@@ -3,10 +3,45 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { bundleStats } from "rollup-plugin-bundle-stats";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 
 // https://vite.dev/config/
 export default defineConfig({
-	plugins: [react(), tailwindcss(), bundleStats()],
+	plugins: [
+		react(),
+		tailwindcss(),
+		bundleStats(),
+		VitePWA({
+			registerType: "autoUpdate",
+			injectRegister: "auto",
+			manifest: {
+				name: "Media Toolbox",
+				short_name: "MediaToolbox",
+				description: "A browser-based audio extractor built with Mediabunny.",
+				theme_color: "#252525",
+				background_color: "#252525",
+				display: "standalone",
+				icons: [
+					{
+						src: "/icon-192x192.svg",
+						sizes: "192x192",
+						type: "image/svg+xml",
+						purpose: "any maskable",
+					},
+					{
+						src: "/icon-512x512.svg",
+						sizes: "512x512",
+						type: "image/svg+xml",
+						purpose: "any maskable",
+					},
+				],
+			},
+			workbox: {
+				globPatterns: ["**/*.{js,css,html,svg,png,ico,woff,woff2}"],
+				maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
+			},
+		}),
+	],
 	build: {
 		rollupOptions: {
 			output: {
