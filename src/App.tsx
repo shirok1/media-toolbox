@@ -9,6 +9,7 @@ import {
 	BufferTarget,
 	Conversion,
 	FlacOutputFormat,
+	HLS_FORMATS,
 	MATROSKA,
 	Input as MediaInput,
 	MkvOutputFormat,
@@ -20,6 +21,7 @@ import {
 	OggOutputFormat,
 	Output,
 	QTFF,
+	UrlSource,
 	WavOutputFormat,
 	WEBM,
 } from "mediabunny";
@@ -46,6 +48,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 const formatBytes = (bytes: number) => {
@@ -108,6 +111,9 @@ const SUPPORTED_INPUT_FORMATS = [MP4, QTFF, MATROSKA, WEBM, MPEG_TS];
 function App() {
 	const { t } = useTranslation();
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
+	const [activeTab, setActiveTab] = useState<"file" | "hls">("file");
+	const [hlsUrlInput, setHlsUrlInput] = useState("");
+	const [activeHlsUrl, setActiveHlsUrl] = useState<string | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const [logs, setLogs] = useState<string[]>([]);
 
@@ -129,6 +135,16 @@ function App() {
 	const metadataRequestId = useRef(0);
 
 	const fileSummary = useMemo(() => {
+		if (activeTab === "hls") {
+			if (!activeHlsUrl) return t("noVideoLoaded");
+			try {
+				const url = new URL(activeHlsUrl);
+				return url.hostname;
+			} catch {
+				return activeHlsUrl;
+			}
+		}
+
 		if (!selectedFile) {
 			return t("noVideoLoaded");
 		}
@@ -137,9 +153,17 @@ function App() {
 			file: selectedFile.name,
 			size: formatBytes(selectedFile.size),
 		});
-	}, [selectedFile, t]);
+	}, [selectedFile, activeTab, activeHlsUrl, t]);
 
 	const mediaInput = useMemo(() => {
+		if (activeTab === "hls") {
+			if (!activeHlsUrl) return null;
+			return new MediaInput({
+				formats: HLS_FORMATS,
+				source: new UrlSource(activeHlsUrl),
+			});
+		}
+
 		if (!selectedFile) {
 			return null;
 		}
@@ -148,7 +172,7 @@ function App() {
 			formats: SUPPORTED_INPUT_FORMATS,
 			source: new BlobSource(selectedFile),
 		});
-	}, [selectedFile]);
+	}, [selectedFile, activeTab, activeHlsUrl]);
 
 	const estimatedOutputSize = useMemo(() => {
 		if (
@@ -308,7 +332,15 @@ function App() {
 	};
 
 	const startExtraction = async () => {
-		if (!selectedFile || !mediaInput) {
+		if (!mediaInput) {
+			return;
+		}
+
+		if (activeTab === "file" && !selectedFile) {
+			return;
+		}
+
+		if (activeTab === "hls" && !activeHlsUrl) {
 			return;
 		}
 
@@ -321,7 +353,12 @@ function App() {
 		setOutputBlob(null);
 		setOutputFileName(null);
 		setOutputMimeType(null);
-		appendLog(t("startingExtraction"));
+
+		if (activeTab === "hls") {
+			appendLog(t("remuxing"));
+		} else {
+			appendLog(t("startingExtraction"));
+		}
 
 		try {
 			const primaryAudio = await mediaInput.getPrimaryAudioTrack();
@@ -334,7 +371,13 @@ function App() {
 				return;
 			}
 
-			const outputFormat = selectOutputFormat(primaryAudio.codec);
+			const primaryVideo =
+				activeTab === "hls" ? await mediaInput.getPrimaryVideoTrack() : null;
+
+			const outputFormat =
+				activeTab === "hls"
+					? new Mp4OutputFormat()
+					: selectOutputFormat(primaryAudio.codec);
 			const output = new Output({
 				format: outputFormat,
 				target: new BufferTarget(),
@@ -350,7 +393,13 @@ function App() {
 			const conversion = await Conversion.init({
 				input: mediaInput,
 				output,
-				video: { discard: true },
+				video:
+					activeTab === "hls" && primaryVideo
+						? (track) =>
+								track.number === primaryVideo.number
+									? { codec: primaryVideo.codec ?? undefined }
+									: { discard: true }
+						: { discard: true },
 				audio: (track) =>
 					track.number === primaryAudio.number
 						? { codec: primaryAudio.codec ?? undefined }
@@ -366,7 +415,25 @@ function App() {
 			const blob = new Blob([output.target.buffer!], {
 				type: outputFormat.mimeType,
 			});
-			const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
+
+			let baseName = "audio";
+			if (activeTab === "file" && selectedFile) {
+				baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
+			} else if (activeTab === "hls" && activeHlsUrl) {
+				try {
+					const url = new URL(activeHlsUrl);
+					const pathParts = url.pathname.split("/").filter(Boolean);
+					const lastPart = pathParts[pathParts.length - 1];
+					if (lastPart) {
+						baseName = lastPart.replace(/\.[^/.]+$/, "") + "-remux";
+					} else {
+						baseName = "hls-remux";
+					}
+				} catch {
+					baseName = "hls-remux";
+				}
+			}
+
 			const fileName = `${baseName || "audio"}${
 				outputFormat.fileExtension || ""
 			}`;
@@ -435,141 +502,225 @@ function App() {
 
 				<Separator />
 
-				<div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-					<Label
-						htmlFor="video-input"
-						onDragOver={(event) => {
-							event.preventDefault();
-							setIsDragging(true);
-						}}
-						onDragLeave={() => setIsDragging(false)}
-						onDrop={handleDrop}
-						className={cn("group block cursor-pointer h-fit")}
-					>
-						{selectedFile ? (
-							<div
-								className={cn(
-									"rounded-2xl border border-dashed px-6 py-8 text-left transition",
-									isDragging
-										? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
-										: "border-border/70 bg-muted/30",
-								)}
-							>
-								<div className="w-full space-y-4 text-left">
-									<div>
-										<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-											{t("currentFile")}
-										</p>
-										<p className="mt-2 text-base font-semibold">
-											{fileSummary}
-										</p>
-									</div>
-									<MetadataVideo
-										durationLabel={formatDuration(
-											metadata?.durationSeconds ?? null,
+				<Tabs
+					value={activeTab}
+					onValueChange={(v) => setActiveTab(v as "file" | "hls")}
+					className="w-full"
+				>
+					<TabsList className="grid w-full grid-cols-2 max-w-sm mb-6">
+						<TabsTrigger value="file">{t("fileMode")}</TabsTrigger>
+						<TabsTrigger value="hls">{t("hlsMode")}</TabsTrigger>
+					</TabsList>
+
+					<div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+						<div>
+							<TabsContent value="file" className="mt-0">
+								<Label
+									htmlFor="video-input"
+									onDragOver={(event) => {
+										event.preventDefault();
+										setIsDragging(true);
+									}}
+									onDragLeave={() => setIsDragging(false)}
+									onDrop={handleDrop}
+									className={cn("group block cursor-pointer h-fit")}
+								>
+									{selectedFile ? (
+										<div
+											className={cn(
+												"rounded-2xl border border-dashed px-6 py-8 text-left transition",
+												isDragging
+													? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
+													: "border-border/70 bg-muted/30",
+											)}
+										>
+											<div className="w-full space-y-4 text-left">
+												<div>
+													<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+														{t("currentFile")}
+													</p>
+													<p className="mt-2 text-base font-semibold">
+														{fileSummary}
+													</p>
+												</div>
+												<MetadataVideo
+													durationLabel={formatDuration(
+														metadata?.durationSeconds ?? null,
+													)}
+													fileSizeLabel={formatBytes(selectedFile.size)}
+													audioLabel={audioLabel}
+													estimatedOutputLabel={
+														estimatedOutputSize
+															? formatBytes(estimatedOutputSize)
+															: "—"
+													}
+												/>
+												{isReadingMetadata ? (
+													<p className="text-xs text-muted-foreground">
+														{t("readingMetadata")}
+													</p>
+												) : null}
+											</div>
+										</div>
+									) : (
+										<Empty
+											className={cn(
+												"border border-dashed",
+												isDragging
+													? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
+													: "border-border/70 bg-muted/30",
+											)}
+										>
+											<EmptyHeader>
+												<EmptyMedia variant="icon">
+													<VideoAdd />
+												</EmptyMedia>
+												<EmptyTitle>
+													{isDragging ? t("releaseToLoad") : t("dropZone")}
+												</EmptyTitle>
+												<EmptyDescription>{t("dragOrClick")}</EmptyDescription>
+											</EmptyHeader>
+											<EmptyContent className="max-w-none">
+												<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+													{SUPPORTED_INPUT_FORMATS.map((format) => (
+														<Badge variant="secondary" key={format.mimeType}>
+															{format.mimeType.split("/").at(-1)}
+														</Badge>
+													))}
+												</div>
+												<Button asChild size="sm">
+													<span>{t("chooseFile")}</span>
+												</Button>
+											</EmptyContent>
+										</Empty>
+									)}
+									<Input
+										id="video-input"
+										type="file"
+										accept="video/*"
+										className="sr-only"
+										onChange={(event) => handleFiles(event.target.files)}
+									/>
+								</Label>
+							</TabsContent>
+
+							<TabsContent value="hls" className="mt-0">
+								<Card className="border-dashed bg-muted/30">
+									<CardHeader>
+										<CardTitle className="text-lg">{t("hlsUrl")}</CardTitle>
+										<CardDescription>{t("hlsMode")}</CardDescription>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										<div className="flex gap-2">
+											<Input
+												type="url"
+												placeholder={t("hlsUrlPlaceholder")}
+												value={hlsUrlInput}
+												onChange={(e) => setHlsUrlInput(e.target.value)}
+											/>
+											<Button
+												onClick={() => {
+													setActiveHlsUrl(hlsUrlInput);
+													setOutputBlob(null);
+													setOutputFileName(null);
+													setOutputMimeType(null);
+												}}
+												disabled={!hlsUrlInput}
+											>
+												{t("loadHls")}
+											</Button>
+										</div>
+
+										{activeHlsUrl && (
+											<div className="mt-6">
+												<div className="w-full space-y-4 text-left">
+													<div>
+														<p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+															{t("currentFile")}
+														</p>
+														<p className="mt-2 text-base font-semibold break-all">
+															{fileSummary}
+														</p>
+													</div>
+													<MetadataVideo
+														durationLabel={formatDuration(
+															metadata?.durationSeconds ?? null,
+														)}
+														fileSizeLabel="—"
+														audioLabel={audioLabel}
+														estimatedOutputLabel={
+															estimatedOutputSize
+																? formatBytes(estimatedOutputSize)
+																: "—"
+														}
+													/>
+													{isReadingMetadata ? (
+														<p className="text-xs text-muted-foreground">
+															{t("readingMetadata")}
+														</p>
+													) : null}
+												</div>
+											</div>
 										)}
-										fileSizeLabel={formatBytes(selectedFile.size)}
-										audioLabel={audioLabel}
-										estimatedOutputLabel={
-											estimatedOutputSize
-												? formatBytes(estimatedOutputSize)
-												: "—"
-										}
-									/>
-									{isReadingMetadata ? (
-										<p className="text-xs text-muted-foreground">
-											{t("readingMetadata")}
+									</CardContent>
+								</Card>
+							</TabsContent>
+						</div>
+
+						<div className="flex flex-col gap-6">
+							<Card>
+								<CardHeader>
+									<CardTitle>
+										{activeTab === "hls" ? t("hlsRemuxer") : t("output")}
+									</CardTitle>
+									<CardDescription>{outputStatus}</CardDescription>
+								</CardHeader>
+								<CardContent>
+									<div className="space-y-4">
+										<MetadataAudio
+											mimeTypeLabel={outputMimeType ?? "—"}
+											outputSizeLabel={outputSizeLabel}
+										/>
+										<div className="flex flex-wrap gap-3">
+											<Button
+												size="lg"
+												onClick={startExtraction}
+												disabled={
+													isExtracting ||
+													isReadingMetadata ||
+													(activeTab === "file" && !selectedFile) ||
+													(activeTab === "hls" && !activeHlsUrl)
+												}
+											>
+												{activeTab === "hls"
+													? t("startRemux")
+													: t("startExtraction")}
+											</Button>
+											<Button
+												size="lg"
+												variant="secondary"
+												onClick={handleSaveResult}
+												disabled={!outputBlob || isExtracting}
+											>
+												{t("saveResult")}
+											</Button>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+
+							<ScrollArea className="h-65 rounded-lg border bg-muted/40">
+								<div className="space-y-2 p-4 font-mono text-xs text-primary">
+									{logs.map((log, index) => (
+										<p key={`${log}-${index}`} className="leading-relaxed">
+											{log}
 										</p>
-									) : null}
+									))}
 								</div>
-							</div>
-						) : (
-							<Empty
-								className={cn(
-									"border border-dashed",
-									isDragging
-										? "border-primary/70 bg-primary/10 shadow-[0_16px_50px_-40px_rgba(0,0,0,0.6)]"
-										: "border-border/70 bg-muted/30",
-								)}
-							>
-								<EmptyHeader>
-									<EmptyMedia variant="icon">
-										<VideoAdd />
-									</EmptyMedia>
-									<EmptyTitle>
-										{isDragging ? t("releaseToLoad") : t("dropZone")}
-									</EmptyTitle>
-									<EmptyDescription>{t("dragOrClick")}</EmptyDescription>
-								</EmptyHeader>
-								<EmptyContent className="max-w-none">
-									<div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-										{SUPPORTED_INPUT_FORMATS.map((format) => (
-											<Badge variant="secondary">
-												{format.mimeType.split("/").at(-1)}
-											</Badge>
-										))}
-									</div>
-									<Button asChild size="sm">
-										<span>{t("chooseFile")}</span>
-									</Button>
-								</EmptyContent>
-							</Empty>
-						)}
-						<Input
-							id="video-input"
-							type="file"
-							accept="video/*"
-							className="sr-only"
-							onChange={(event) => handleFiles(event.target.files)}
-						/>
-					</Label>
-
-					<div className="flex flex-col gap-6">
-						<Card>
-							<CardHeader>
-								<CardTitle>{t("output")}</CardTitle>
-								<CardDescription>{outputStatus}</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="space-y-4">
-									<MetadataAudio
-										mimeTypeLabel={outputMimeType ?? "—"}
-										outputSizeLabel={outputSizeLabel}
-									/>
-									<div className="flex flex-wrap gap-3">
-										<Button
-											size="lg"
-											onClick={startExtraction}
-											disabled={
-												!selectedFile || isExtracting || isReadingMetadata
-											}
-										>
-											{t("startExtraction")}
-										</Button>
-										<Button
-											size="lg"
-											variant="secondary"
-											onClick={handleSaveResult}
-											disabled={!outputBlob || isExtracting}
-										>
-											{t("saveResult")}
-										</Button>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-
-						<ScrollArea className="h-65 rounded-lg border bg-muted/40">
-							<div className="space-y-2 p-4 font-mono text-xs text-primary">
-								{logs.map((log, index) => (
-									<p key={`${log}-${index}`} className="leading-relaxed">
-										{log}
-									</p>
-								))}
-							</div>
-						</ScrollArea>
+							</ScrollArea>
+						</div>
 					</div>
-				</div>
+				</Tabs>
 			</div>
 		</div>
 	);

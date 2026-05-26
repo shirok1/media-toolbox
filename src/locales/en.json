@@ -33,5 +33,13 @@
 	"saveResult": "Save result",
 	"unknown": "unknown",
 	"unknownCodec": "unknown codec",
-	"unknownError": "Unknown error"
+	"unknownError": "Unknown error",
+	"fileMode": "Local File",
+	"hlsMode": "M3U8 HLS",
+	"hlsUrl": "M3U8 URL",
+	"hlsUrlPlaceholder": "https://example.com/playlist.m3u8",
+	"loadHls": "Load HLS",
+	"remuxing": "Remuxing...",
+	"startRemux": "Start Remux",
+	"hlsRemuxer": "HLS Remuxer"
 }

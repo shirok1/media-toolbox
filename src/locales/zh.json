@@ -33,5 +33,13 @@
 	"saveResult": "保存结果",
 	"unknown": "未知",
 	"unknownCodec": "未知编码",
-	"unknownError": "未知错误"
+	"unknownError": "未知错误",
+	"fileMode": "本地文件",
+	"hlsMode": "M3U8 HLS",
+	"hlsUrl": "M3U8 链接",
+	"hlsUrlPlaceholder": "https://example.com/playlist.m3u8",
+	"loadHls": "加载 HLS",
+	"remuxing": "正在重新封装...",
+	"startRemux": "开始重新封装",
+	"hlsRemuxer": "HLS 重新封装"
 }
